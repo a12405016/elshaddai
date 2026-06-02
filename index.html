@@ -269,13 +269,20 @@ function initAudio() {
   audioCtx.decodeAudioData(bytes.buffer, buf => { audioBuffer = buf; });
 }
 
-function playSnap() {
+async function playSnap() {
   if (!audioCtx || !audioBuffer) return;
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  // スマホブラウザ対策: suspended状態を確実に解除してから再生
+  if (audioCtx.state === 'suspended') {
+    await audioCtx.resume();
+  }
   const src = audioCtx.createBufferSource();
   src.buffer = audioBuffer;
-  src.connect(audioCtx.destination);
-  src.start();
+  // GainNodeを経由してボリュームを明示（一部Androidで必要）
+  const gain = audioCtx.createGain();
+  gain.gain.value = 1.0;
+  src.connect(gain);
+  gain.connect(audioCtx.destination);
+  src.start(0);
 }
 
 // ─── 星フィールド ─────────────────────────────────────────────────────────────
@@ -373,9 +380,9 @@ let count = 0;
 let msgTimeout = null;
 
 btn.addEventListener('pointerdown', () => { initAudio(); });
-btn.addEventListener('click', () => {
+btn.addEventListener('click', async () => {
   initAudio();
-  playSnap();
+  await playSnap();
   spawnParticles();
 
   btn.classList.remove('snapping');
